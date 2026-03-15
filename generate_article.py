@@ -1,16 +1,24 @@
 """
 Script para generar artículos completos - Versión Optimizada
 Usa agentes independientes para menor consumo de tokens
+Incluye sistema de QA como security review
 """
 
 import os
 import sys
+
+# Configurar UTF-8 para emojis en Windows
+if os.name == 'nt':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 from datetime import datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from agents.orchestrator import OrchestratorAgent
 from agents.research_agent import ResearchAgent
+from agents.qa_agent import ContentQAAgent, ContentSecurityAgent
 from services.cache_service import CacheService
 
 
@@ -163,6 +171,32 @@ def main():
         if "error" in article:
             print(f"\n❌ {article['error']}")
             return
+        
+        print("\n🔍 Verificando calidad del contenido...")
+        
+        try:
+            qa_agent = ContentQAAgent()
+            qa_report = qa_agent.analyze_article(article)
+            
+            print(f"\n📊 Puntuación de calidad: {qa_report.score}/100")
+            print(f"Estado: {'✅ APROBADO' if qa_report.passed else '❌ REPROBADO'}")
+            
+            if qa_report.findings:
+                print("\n📋 Hallazgos:")
+                for f in qa_report.findings[:3]:
+                    emoji = {'critical': '🔴', 'high': '🟠', 'medium': '🟡', 'low': '🔵'}.get(f['severity'], '•')
+                    print(f"   {emoji} {f['severity'].upper()}: {f['message']}")
+            
+            security_agent = ContentSecurityAgent()
+            security_report = security_agent.scan_article(article)
+            
+            if not security_report.passed:
+                print("\n⚠️ ALERTA DE SEGURIDAD:")
+                for f in security_report.findings:
+                    print(f"   🔴 {f['message']}")
+        
+        except Exception as e:
+            print(f"   ⚠️ No se pudo completar QA: {e}")
         
         print("\n" + "="*70)
         print("✅ ARTÍCULO GENERADO")

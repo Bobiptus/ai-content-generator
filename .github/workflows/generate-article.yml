@@ -1,0 +1,74 @@
+name: Generate Article
+
+on:
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: 'Topic for the article'
+        required: true
+        type: string
+      tone:
+        description: 'Tone of the article'
+        required: false
+        type: choice
+        options:
+          - profesional
+          - casual
+          - técnico
+        default: profesional
+      use_research:
+        description: 'Enable web research'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install -r requirements.txt
+
+      - name: Create environment file
+        run: |
+          echo "GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}" > .env
+          echo "TAVILY_API_KEY=${{ secrets.TAVILY_API_KEY }}" >> .env
+
+      - name: Generate article
+        id: generate
+        run: |
+          source venv/bin/activate
+          python generate_article.py << EOF
+${{ github.event.inputs.topic }}
+${{ github.event.inputs.use_research == 'true' && '1' || '2' }}
+${{ github.event.inputs.tone == 'profesional' && '1' || github.event.inputs.tone == 'casual' && '2' || '3' }}
+EOF
+
+      - name: Upload article as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-article
+          path: outputs/
+          retention-days: 30
+
+      - name: Commit and push article
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add outputs/
+          git commit -m "Generated article: ${{ github.event.inputs.topic }}" || echo "No changes to commit"
+          git push

@@ -2,10 +2,10 @@ import os
 import sys
 import time
 from typing import Optional, Dict, Any, List
-from dotenv import load_dotenv
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
+from dotenv import load_dotenv
 load_dotenv()
 
 
