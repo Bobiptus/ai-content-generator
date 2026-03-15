@@ -14,7 +14,7 @@ on:
         options:
           - profesional
           - casual
-          - técnico
+          - tecnico
         default: profesional
       use_research:
         description: 'Enable web research'
@@ -55,7 +55,14 @@ jobs:
         id: generate
         run: |
           . venv/bin/activate
-          echo "${{ github.event.inputs.topic }}" | python generate_article.py
+          if [ "${{ github.event.inputs.use_research }}" == "true" ]; then
+            python generate_article.py --topic "${{ github.event.inputs.topic }}" --tone "${{ github.event.inputs.tone }}" --research
+          else
+            python generate_article.py --topic "${{ github.event.inputs.topic }}" --tone "${{ github.event.inputs.tone }}"
+          fi
+
+      - name: List generated files
+        run: ls -la outputs/
 
       - name: Upload article as artifact
         uses: actions/upload-artifact@v4

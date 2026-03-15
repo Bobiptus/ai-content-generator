@@ -2,10 +2,15 @@
 Script para generar artículos completos - Versión Optimizada
 Usa agentes independientes para menor consumo de tokens
 Incluye sistema de QA como security review
+
+Uso:
+    python generate_article.py --topic "tu tema" --tone profesional --research
+    python generate_article.py --help
 """
 
 import os
 import sys
+import argparse
 
 # Configurar UTF-8 para emojis en Windows
 if os.name == 'nt':
@@ -28,7 +33,7 @@ def clear_screen():
 
 def print_header():
     print("=" * 70)
-    print("📰 GENERADOR DE ARTÍCULOS OPTIMIZADO")
+    print("GENERADOR DE ARTICULOS OPTIMIZADO")
     print("   [Agentes independientes - Menor consumo de tokens]")
     print("=" * 70)
     print()
@@ -44,7 +49,7 @@ def format_article_markdown(article):
 
 ---
 
-## Introducción
+## Introduccion
 
 {article['introduction']}
 
@@ -56,13 +61,13 @@ def format_article_markdown(article):
         for section in article['sections']:
             markdown += f"## {section['title']}\n\n{section['content']}\n\n---\n\n"
 
-    markdown += f"""## Conclusión
+    markdown += f"""## Conclusion
 
 {article['conclusion']}
 
 ---
 
-*Artículo generado automáticamente con IA*
+*Articulo generado automaticamente con IA*
 """
     return markdown
 
@@ -78,152 +83,138 @@ def save_article(article, format='markdown'):
         content = format_article_markdown(article)
     else:
         filename = f"outputs/article_{safe_topic}_{timestamp}.txt"
-        content = f"""TÍTULO: {article['title']}
+        content = f"""TITULO: {article['title']}
 TEMA: {article['topic']}
 TONO: {article['tone']}
 FECHA: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 {"="*70}
 
-INTRODUCCIÓN:
+INTRODUCCION:
 {article['introduction']}
 
 {"="*70}
 
-CONCLUSIÓN:
+CONCLUSION:
 {article['conclusion']}
 
 {"="*70}
-*Artículo generado automáticamente con IA*
+*Articulo generado automaticamente con IA*
 """
     
+    os.makedirs("outputs", exist_ok=True)
     with open(filename, 'w', encoding='utf-8') as f:
         f.write(content)
     
     return filename
 
 
-def main():
-    clear_screen()
-    print_header()
+def generate_article(topic, tone="profesional", use_research=False):
+    """Genera un articulo - sin interaccion"""
+    
+    print(f"[INFO] Generando articulo sobre: {topic}")
+    print(f"[INFO] Tono: {tone}")
+    print(f"[INFO] Investigacion: {'si' if use_research else 'no'}")
     
     try:
-        use_research = False
-        print("🔧 Inicializando agentes...")
-        
-        try:
-            research_agent = ResearchAgent()
-            orchestrator = OrchestratorAgent()
-            use_research = True
-            print("✅ Agentes listos (con investigación web)")
-        except ValueError as e:
-            print(f"⚠️ Investigación no disponible: {e}")
-            orchestrator = OrchestratorAgent()
-            print("✅ Agentes listos (sin investigación)")
-        except Exception as e:
-            print(f"⚠️ Error: {e}")
-            orchestrator = OrchestratorAgent()
-            print("✅ Agentes listos (modo básico)")
-        
-        print()
-        
-        print("📝 Configuración del artículo:")
-        print("-" * 70)
-        
-        topic = input("Tema del artículo: ").strip()
-        if not topic:
-            print("❌ Debes ingresar un tema")
-            return
-        
-        if use_research:
-            print("\n¿Deseas buscar información actualizada en la web?")
-            print("  1. Sí (recomendado)")
-            print("  2. No")
-            research_choice = input("Elige (1-2) [1]: ").strip() or "1"
-            use_research = (research_choice == "1")
-        
-        print("\nTonos disponibles:")
-        print("  1. Profesional")
-        print("  2. Casual")
-        print("  3. Técnico")
-        tone_choice = input("Elige el tono (1-3) [1]: ").strip() or "1"
-        
-        tones = {"1": "profesional", "2": "casual", "3": "técnico"}
-        tone = tones.get(tone_choice, "profesional")
-        
-        print("\n" + "="*70)
-        print(f"🤖 Generando artículo sobre: '{topic}'")
-        print(f"📊 Tono: {tone}")
-        print("⏳ Procesando...")
-        print("="*70)
-        
-        research_context = ""
-        if use_research:
-            print("\n🔍 Investigando tema...")
-            try:
-                research_data = research_agent.research_topic(topic)
-                research_context = research_agent.format_for_prompt(research_data)
-                print(f"   ✅ {len(research_data.get('sources', []))} fuentes encontradas")
-            except Exception as e:
-                print(f"   ⚠️ Error en investigación: {e}")
-        
-        article = orchestrator.generate_article(topic, tone, research_context)
-        
-        if "error" in article:
-            print(f"\n❌ {article['error']}")
-            return
-        
-        print("\n🔍 Verificando calidad del contenido...")
-        
-        try:
-            qa_agent = ContentQAAgent()
-            qa_report = qa_agent.analyze_article(article)
-            
-            print(f"\n📊 Puntuación de calidad: {qa_report.score}/100")
-            print(f"Estado: {'✅ APROBADO' if qa_report.passed else '❌ REPROBADO'}")
-            
-            if qa_report.findings:
-                print("\n📋 Hallazgos:")
-                for f in qa_report.findings[:3]:
-                    emoji = {'critical': '🔴', 'high': '🟠', 'medium': '🟡', 'low': '🔵'}.get(f['severity'], '•')
-                    print(f"   {emoji} {f['severity'].upper()}: {f['message']}")
-            
-            security_agent = ContentSecurityAgent()
-            security_report = security_agent.scan_article(article)
-            
-            if not security_report.passed:
-                print("\n⚠️ ALERTA DE SEGURIDAD:")
-                for f in security_report.findings:
-                    print(f"   🔴 {f['message']}")
-        
-        except Exception as e:
-            print(f"   ⚠️ No se pudo completar QA: {e}")
-        
-        print("\n" + "="*70)
-        print("✅ ARTÍCULO GENERADO")
-        print("="*70)
-        print(f"\n📊 Estadísticas:")
-        print(f"   - Título: {article['title']}")
-        print(f"   - Palabras: ~{article['word_count']}")
-        
-        if article.get('research_data') and article['research_data'].get('sources'):
-            print(f"   - Fuentes: {len(article['research_data']['sources'])}")
-        
-        filename_md = save_article(article, format='markdown')
-        
-        print(f"\n💾 Guardado: {filename_md}")
-        
-        view = input("\n¿Quieres ver el artículo? (s/n): ").strip().lower()
-        if view == 's':
-            print("\n" + "="*70)
-            print(format_article_markdown(article))
-            print("="*70)
-        
-        print("\n✅ ¡Completado!")
-        
-    except KeyboardInterrupt:
-        print("\n\n⚠️ Proceso cancelado")
+        research_agent = ResearchAgent()
+        orchestrator = OrchestratorAgent()
     except Exception as e:
-        print(f"\n❌ Error: {str(e)}")
+        print(f"[ERROR] Error al inicializar: {e}")
+        return None
+    
+    research_context = ""
+    if use_research:
+        print("[INFO] Investigando tema...")
+        try:
+            research_data = research_agent.research_topic(topic)
+            research_context = research_agent.format_for_prompt(research_data)
+            print(f"[INFO] {len(research_data.get('sources', []))} fuentes encontradas")
+        except Exception as e:
+            print(f"[WARN] Error en investigacion: {e}")
+    
+    print("[INFO] Generando articulo...")
+    article = orchestrator.generate_article(topic, tone, research_context)
+    
+    if "error" in article:
+        print(f"[ERROR] {article['error']}")
+        return None
+    
+    # QA
+    print("[INFO] Verificando calidad...")
+    try:
+        qa_agent = ContentQAAgent()
+        qa_report = qa_agent.analyze_article(article)
+        print(f"[INFO] Puntuacion de calidad: {qa_report.score}/100")
+        
+        if qa_report.findings:
+            for f in qa_report.findings[:3]:
+                print(f"[WARN] {f['severity'].upper()}: {f['message']}")
+        
+        security_agent = ContentSecurityAgent()
+        security_report = security_agent.scan_article(article)
+        
+        if not security_report.passed:
+            print(f"[ALERT] Problemas de seguridad encontrados")
+    except Exception as e:
+        print(f"[WARN] QA no disponible: {e}")
+    
+    return article
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Generador de articulos con IA')
+    parser.add_argument('--topic', '-t', type=str, help='Tema del articulo')
+    parser.add_argument('--tone', type=str, default='profesional', 
+                       choices=['profesional', 'casual', 'tecnico'],
+                       help='Tono del articulo')
+    parser.add_argument('--research', '-r', action='store_true',
+                       help='Habilitar busqueda web')
+    parser.add_argument('--output', '-o', type=str, default='markdown',
+                       choices=['markdown', 'txt', 'both'],
+                       help='Formato de salida')
+    
+    args = parser.parse_args()
+    
+    if not args.topic:
+        # Modo interactivo
+        clear_screen()
+        print_header()
+        
+        print("Tema del articulo: ", end="")
+        topic = input().strip()
+        if not topic:
+            print("Debes ingresar un tema")
+            return
+        
+        print("Deseas busqueda web? (s/n): ", end="")
+        use_research = input().strip().lower() == 's'
+        
+        print("Tono (1=profesional, 2=casual, 3=tecnico): ", end="")
+        tone_choice = input().strip()
+        tones = {"1": "profesional", "2": "casual", "3": "tecnico"}
+        tone = tones.get(tone_choice, "profesional")
+    else:
+        topic = args.topic
+        use_research = args.research
+        tone = args.tone
+    
+    article = generate_article(topic, tone, use_research)
+    
+    if article:
+        print(f"\n[SUCCESS] Articulo generado: {article['title']}")
+        
+        if args.output in ['markdown', 'both']:
+            filename_md = save_article(article, format='markdown')
+            print(f"[SUCCESS] Guardado: {filename_md}")
+        
+        if args.output in ['txt', 'both']:
+            filename_txt = save_article(article, format='txt')
+            print(f"[SUCCESS] Guardado: {filename_txt}")
+        
+        print(format_article_markdown(article))
+    else:
+        print("[ERROR] No se pudo generar el articulo")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
