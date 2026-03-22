@@ -167,13 +167,12 @@ def generate_article(topic, tone="profesional", use_research=False):
     print("[INFO] Generando imagen...")
     try:
         image_agent = ImageAgent()
-        image_result = image_agent.generate_for_article(
-            topic=topic,
-            title=article.get('title', topic)
-        )
+        # Pasar el artículo completo para que PromptAgent analice el contenido
+        image_result = image_agent.generate_for_article(article)
         
         if image_result['success']:
             print(f"[INFO] Imagen generada: {image_result['filepath']}")
+            print(f"[INFO] Prompt usado: {image_result['prompt'][:80]}...")
             article['image'] = image_result
         else:
             print(f"[WARN] No se pudo generar imagen: {image_result.get('error')}")
@@ -269,6 +268,30 @@ def main():
             
         except Exception as e:
             print(f"[WARN] No se pudieron generar posts sociales: {e}")
+        
+        # Generar imágenes para redes sociales
+        print("\n[INFO] Generando imagenes para redes sociales...")
+        try:
+            image_agent = ImageAgent()
+            
+            platforms = ['instagram', 'twitter', 'facebook', 'linkedin']
+            social_images = {}
+            
+            for platform in platforms:
+                print(f"\n  [{platform.upper()}]")
+                result = image_agent.generate_social_post(article, platform)
+                
+                if result['success']:
+                    print(f"    [OK] Guardada: {result['filepath']}")
+                    social_images[platform] = result
+                else:
+                    print(f"    [ERROR] {result.get('error')}")
+                    social_images[platform] = None
+            
+            article['social_images'] = social_images
+            
+        except Exception as e:
+            print(f"[WARN] No se pudieron generar imagenes sociales: {e}")
         
         print(format_article_markdown(article))
     else:
